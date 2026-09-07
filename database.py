@@ -90,3 +90,31 @@ def get_daily_summary(target_date: str = None) -> dict:
             "carbs_g": round(carbs, 1),
             "fat_g": round(fat, 1),
         }
+        
+def delete_meal(meal_id: int) -> bool:
+    # Deletes a meal and its associated ingredients by ID
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        
+        # Deletes a related ingredients first (foreign key dependency)
+        cursor.execute("DELETE FROM food_items WHERE meal_id = ?", (meal_id,))
+        cursor.execute("DELETE FROM meals WHERE id = ?", (meal_id,))
+        conn.commit()
+        return cursor.rowcount > 0
+    
+def get_recent_meals(limit: int = 5) -> list[dict]:
+    # Fetches recent meals so you know which ID to delete
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT id, timestamp, meal_description, total_calories
+            FROM meals
+            ORDER BY id DESC LIMIT ?
+            """,
+            (limit,),               
+        )
+        rows = cursor.fetchall()
+        return [
+            {"id": r[0], "time": r[1], "desc": r[2], "calories": r[3]} for r in rows
+        ]

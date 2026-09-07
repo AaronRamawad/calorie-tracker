@@ -12,7 +12,7 @@ Order of Development
 
 from pathlib import Path
 from parser import parse_meal_text, parse_meal_image, MealAnalysis
-from database import init_db, save_meal, get_daily_summary
+from database import init_db, save_meal, get_daily_summary, get_recent_meals, delete_meal
 
 def format_meal_report(meal_desc: str, analysis: MealAnalysis):
     #prints a clean breakdown of the analyzed meal
@@ -60,12 +60,21 @@ if __name__ == "__main__":
     init_db()
     
     # --- TEST 1: Text Input ---
-    process_and_log_meal("Greek yogurt with blueberries and honey")
+    #process_and_log_meal("Greek yogurt with blueberries and honey")
 
     # --- TEST 2: Photo Input ---
+    """
     test_image = "temp_images/food.jpeg"
     if Path(test_image).exists():
         process_and_log_meal(test_image, is_image=True, notes="Cooked in 1 tbsp olive oil")
     else:
         print(f"To test image logging, drop a picture named '{test_image}' into your folder and re-run.")
+    """ 
     
+    # --- TEST 3: Get Recent meals ---
+    for meal in get_recent_meals():
+        print(f"[{meal['id']}] {meal['desc']} - {meal['calories']} kcal")
+        
+    # --- TEST 4: Delete Meals ---
+    delete_meal(meal_id=1)
+        
