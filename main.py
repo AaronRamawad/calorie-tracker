@@ -76,5 +76,5 @@ if __name__ == "__main__":
         print(f"[{meal['id']}] {meal['desc']} - {meal['calories']} kcal")
         
     # --- TEST 4: Delete Meals ---
-    delete_meal(meal_id=1)
+    #delete_meal(meal_id=1)
         
