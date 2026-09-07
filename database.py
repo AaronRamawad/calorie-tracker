@@ -157,3 +157,54 @@ def reset_all_data() -> None:
         # Reset the autoincrement ID counters badck to 1
         cursor.execute("DELETE FROM sqlite_sequence WHERE name IN ('meals', 'food_items')")
         conn.commit()
+        
+def get_meal_by_id(meal_id: int) -> dict | None:
+    # Fetches a meal and its food items by meal_id
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, meal_description, total_calories FROM meals WHERE id = ?", (meal_id,),)
+        meal_row = cursor.fetchone()
+        if not meal_row:
+            return None
+        
+        cursor.execute("SELECT name, grams, calories, protein, carbs, fat FROM food_items WHERE meal_id = ?", (meal_id,))
+        items = cursor.fetchall()
+        
+        return {
+            "id": meal_row[0],
+            "description": meal_row[1],
+            "total_calories": meal_row[2],
+            "items": [
+                {"name": r[0], "grams": r[1], "calories": r[2], "protein": r[3], "carbs": r[4], "fat": r[5]}
+                for r in items
+            ],
+        }
+        
+def update_meal(meal_id: int, new_description: str, analysis: MealAnalysis) -> bool:
+    # Replaces food items and updates total calories for an existing meal
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        
+        # Verify that meal exist
+        cursor.execute("SELECT id FROM meals WHERE id = ?", (meal_id))
+        if not cursor.fetchone():
+            return False
+        
+        # Update parent meal
+        cursor.execute(
+            "UPDATE meals SET meal_description = ?, total_calories = ? WHERE id = ?",
+            (new_description, analysis.total_calories, meal_id)
+        )
+        
+        # Clear old line items and update the revised ones
+        cursor.execute("DELETE FROM food_items WHERE meal_id = ?", (meal_id,))
+        for item in analysis.items:
+            cursor.execute(
+                """
+                INSERT INTO food_items (meal_id, name, grams, calories, protein. carbs, fat)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (meal_id, item.name, item.grams, item.calories, item.protein, item.carbs, item.fat),
+            )
+        conn.commit()
+        return True

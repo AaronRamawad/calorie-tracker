@@ -78,10 +78,43 @@ def parse_meal_image(image_path: str, user_notes: str = "") -> MealAnalysis:
         config=types.GenerateContentConfig(
             response_mime_type="application/json",
             response_schema=MealAnalysis,
-            temperature=0.2,
+            temperature=0.1,
         ),
     )
     return response.parsed
+
+def recalculate_meal_correction(existing_items: list[dict], correction_instruction: str) -> MealAnalysis:
+    # Reanalyze an exisiting meal breakdown based on user modifications
+    current_breakdown_text = "\n".join(
+        [f"- {item['name']} ({item['grams']}g): {item['calories']} kcal, P:{item['protein']}g, C:{item['carbs']}g, F:{item['fat']}g" 
+         for item in existing_items]
+    )
+    
+    prompt = f"""
+        You are a precise nutritional calculator. A user previously logged a meal with the following breakdown:
+
+        CURRENT BREAKDOWN:
+        {current_breakdown_text}
+
+        USER CORRECTION / ADJUSTMENT:
+        "{correction_instruction}"
+
+        ASK:
+        Apply the correction precisely. Update ingredient names, adjust gram weights or macros as instructed, remove replaced items, or add new items. Recalculate total calories and macros accurately.
+    """
+    
+    response = client.models.generate_content(
+        model="gemini-3.6-flash",
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=MealAnalysis,
+            temperature=0.1,
+        ),
+    )
+    return response.parsed
+     
+    
     
 
 if __name__ == "__main__":

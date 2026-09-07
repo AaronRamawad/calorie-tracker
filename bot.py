@@ -11,8 +11,8 @@ from aiogram.enums import ParseMode
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message
 
-from database import init_db, save_meal, get_daily_summary, delete_meal, get_recent_meals, clear_today_meals, reset_all_data
-from parser import parse_meal_text, parse_meal_image, MealAnalysis
+from database import init_db, save_meal, get_daily_summary, delete_meal, get_recent_meals, clear_today_meals, reset_all_data, get_meal_by_id, update_meal
+from parser import parse_meal_text, parse_meal_image, MealAnalysis, recalculate_meal_correction
 
 load_dotenv()
 
@@ -124,6 +124,57 @@ async def handle_reset(message: Message):
     reset_all_data()
     await message.answer("💥 <b>Database reset.</b> All meals and items have been deleted.")
 
+@dp.message(Command("edit"))
+async def handle_edit(message: Message):
+    '''
+    Usage: /edit <id> <what to change>
+    Example /edit 3 that was tofu not chicken, and no rice
+    '''
+    
+    parts = message.text.split(maxsplit=2)
+    if len(parts) < 3 or not parts[1].isdigit():
+        await message.answer(
+            "⚠️ <b>Usage:</b>\n"
+            "<code>/edit &lt;meal_id&gt; &lt;your correction&gt;</code>\n\n"
+            "<b>Example:</b>\n"
+            "<code>/edit 2 that was turkey bacon, not pork, and only 1 egg</code>"
+        )
+        return
+    
+    meal_id = int(parts[1])
+    correction_text = parts[2]
+    
+    # Fetch current meal from database
+    existing_meal = get_meal_by_id(meal_id)
+    if not existing_meal:
+        await message.answer(f"❌ Could not find meal with ID {meal_id}. Use /recent to check IDs.")
+        return
+    
+    status_msg = await message.answer(f"✏️ Updating Meal #{meal_id}...")
+    
+    try:
+        # Re-parse with Gemini
+        revised_analysis = await asyncio.to_thread(
+            recalculate_meal_correction, existing_meal["items"], correction_text
+        )
+        
+        #Update SQLite DB
+        new_desc = f"{existing_meal['description']} (Edited: {correction_text}"
+        update_meal(meal_id, new_desc, revised_analysis)
+        
+        # Return updated meal & running day totals
+        reply = (
+            f"🔄 <b>Meal #{meal_id} Updated!</b>\n\n"
+            + format_meal_reply(new_desc, meal_id, revised_analysis)
+            + "\n\n"
+            + format_daily_summary_reply()
+        )
+        await status_msg.edit_text(reply)
+        
+    except Exception as e:
+        logging.error(f"Error editing meal: {e}")
+        await status_msg.edit_text("❌ Failed to update the meal. Please try again.")
+    
 
 # ---- Message Ingestion Handlers ----
 
