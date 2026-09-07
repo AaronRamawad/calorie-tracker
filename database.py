@@ -51,7 +51,7 @@ def save_meal(description: str, analysis: MealAnalysis) -> int:
                 INSERT INTO food_items (meal_id, name, grams, calories, protein, carbs, fat)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (meal_id, item.name, item.grams, item.calories, item.protein, item.calories, item.fat),
+                (meal_id, item.name, item.grams, item.calories, item.protein, item.carbs, item.fat),
             )
         conn.commit()
         return meal_id
@@ -186,7 +186,7 @@ def update_meal(meal_id: int, new_description: str, analysis: MealAnalysis) -> b
         cursor = conn.cursor()
         
         # Verify that meal exist
-        cursor.execute("SELECT id FROM meals WHERE id = ?", (meal_id))
+        cursor.execute("SELECT id FROM meals WHERE id = ?", (meal_id,))
         if not cursor.fetchone():
             return False
         
@@ -201,7 +201,7 @@ def update_meal(meal_id: int, new_description: str, analysis: MealAnalysis) -> b
         for item in analysis.items:
             cursor.execute(
                 """
-                INSERT INTO food_items (meal_id, name, grams, calories, protein. carbs, fat)
+                INSERT INTO food_items (meal_id, name, grams, calories, protein, carbs, fat)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (meal_id, item.name, item.grams, item.calories, item.protein, item.carbs, item.fat),
