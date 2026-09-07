@@ -1,4 +1,5 @@
 import os
+import io
 from pathlib import Path
 from dotenv import load_dotenv
 from google import genai
@@ -43,13 +44,15 @@ def parse_meal_text(description: str) -> MealAnalysis:
     return response.parsed
 
 def parse_meal_image(image_path: str, user_notes: str = "") -> MealAnalysis:
-    #Loads an image with Pillow and passes it to Gemini with the Pydantic Schema
-    path = Path(image_path)
-    if not path.exists():
-        raise FileNotFoundError(f"Image not found at {image_path}")
-    
-    # Open the iamge using Pillow
-    img = Image.open(path)
+    #Accepts either a string path, Path Object, or io.BytesIO buffer
+    if isinstance(image_path, (str, Path)):
+        img = Image.open(image_path)
+    elif isinstance(image_path, io.BytesIO):
+        img = Image.open(image_path)
+    elif isinstance(image_path, Image.Image):
+        img = image_path
+    else:
+        raise ValueError("Unsupported image source type")
     
     prompt = (
         f"{BASE_SYSTEM_PROMPT}\n"
