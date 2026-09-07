@@ -1,0 +1,13 @@
+# Enviroment Variables (API Keys)
+*.env
+
+# Python virtual enviroment
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Local databases & uploads
+*.db
+*.sqlite3
+temp_images/
