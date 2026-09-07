@@ -17,7 +17,7 @@ def main():
     #Setup tables if they do not exist
     init_db()
     
-    meal_text = "Chicken breast with a cup of white rice and steamed broccoli"
+    meal_text = input("Please enter your meal below: \n").strip()
     print(f"Parsing meal: '{meal_text}'...")
     
     # Step 1: Parse with Gemini
