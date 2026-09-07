@@ -54,10 +54,20 @@ def parse_meal_image(image_path: str, user_notes: str = "") -> MealAnalysis:
     else:
         raise ValueError("Unsupported image source type")
     
-    prompt = (
-        f"{BASE_SYSTEM_PROMPT}\n"
-        "Identify all foods visible on the plate/container. Estimate the portion sizes and weights. "
-    )
+    prompt = prompt = f"""
+    You are a precise nutritional calculator. Analyze the meal using both the image and the user's caption.
+
+    CRITICAL INSTRUCTIONS ON PRECEDENCE:
+    1. GROUND TRUTH: The user's caption is ABSOLUTE GROUND TRUTH for ingredients, preparations, brand names, and hidden contents (e.g., specific sauces, oils, milk alternatives, or meats).
+    2. NEVER CONTRADICT THE USER: If the user states an item is turkey bacon, tofu, oat milk, or a specific protein, DO NOT label it as pork bacon, chicken, dairy, or guess otherwise based on appearance.
+    3. DIVISION OF LABOR:
+    - Use the USER CAPTION to identify WHAT the food is.
+    - Use the IMAGE primarily to estimate the PORTION SIZE, WEIGHT (grams), and visual scale.
+    4. UNMENTIONED ITEMS: If items are visible in the photo but omitted from the caption (e.g., a side salad, garnish, bread), identify and estimate them normally.
+
+    User Caption: "{user_notes if user_notes.strip() else 'None provided'}"
+    """
+
     if user_notes:
         prompt += "f\nAdditonal context from the user : {user_notes}"
         

@@ -11,7 +11,7 @@ from aiogram.enums import ParseMode
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message
 
-from database import init_db, save_meal, get_daily_summary, delete_meal, get_recent_meals
+from database import init_db, save_meal, get_daily_summary, delete_meal, get_recent_meals, clear_today_meals, reset_all_data
 from parser import parse_meal_text, parse_meal_image, MealAnalysis
 
 load_dotenv()
@@ -56,10 +56,12 @@ async def handle_start(message: Message):
         "👋 <b>Welcome to your AI Calorie Tracker!</b>\n\n"
         "How to use:\n"
         "• <b>Text:</b> Send what you ate (e.g. <i>'2 eggs, toast with butter'</i>)\n"
-        "• <b>Photo:</b> Snap/upload a meal photo (add a caption for cooking oils, etc.)\n"
-        "• <b>/summary:</b> View your macro totals for today\n"
+        "• <b>Photo:</b> Upload a meal picture with optional caption\n"
+        "• <b>/summary:</b> View today's calories and macros\n"
         "• <b>/recent:</b> View last 5 meals and their IDs\n"
-        "• <b>/delete &lt;id&gt;:</b> Delete a specific meal entry\n"
+        "• <b>/delete &lt;id&gt;:</b> Delete a specific meal\n"
+        "• <b>/cleartoday:</b> Clear only today's logged meals\n"
+        "• <b>/reset confirm:</b> Wipe all history from the database\n"
     )
     
 @dp.message(Command("summary"))
@@ -94,7 +96,35 @@ async def handle_delete(message: Message):
         await message.answer(reply)
     else:
         await message.answer(f"❌ Could not find meal with ID {meal_id}.")
+    
+@dp.message(Command("cleartoday"))
+async def handle_clear_today(message: Message):
+    #Wipes only today's logs (useful for testing and restarting the day)
+    count = clear_today_meals()
+    if count > 0:
+        await message.answer(f"🧹 Cleared <b>{count}</b> meal(s) from today.\n" + format_daily_summary_reply())
+    else:
+        await message.answer("ℹ️ No meals were recorded for today.")
         
+@dp.message(Command("reset"))
+async def handle_reset(message: Message):
+    # Require user to type '/reset confirm' to prevent accidental database wipes
+    args = message.text.split()
+    
+    # Safety Guard: Check if user typed 'confirm'
+    if len(args) < 2 or args[1].lower() != "confirm":
+        await message.answer(
+            "⚠️ <b>Warning:</b> This will permanently delete <b>all</b> logged meals and history.\n\n"
+            "To confirm, send:\n"
+            "<code>/reset confirm</code>"
+        )
+        return
+
+    # User confirmed
+    reset_all_data()
+    await message.answer("💥 <b>Database reset.</b> All meals and items have been deleted.")
+
+
 # ---- Message Ingestion Handlers ----
 
 @dp.message(F.photo)

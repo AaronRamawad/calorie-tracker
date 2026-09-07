@@ -118,3 +118,42 @@ def get_recent_meals(limit: int = 5) -> list[dict]:
         return [
             {"id": r[0], "time": r[1], "desc": r[2], "calories": r[3]} for r in rows
         ]
+        
+def clear_today_meals(target_date: str = None) -> int:
+    # Deletes all meals logged for today and returns the count removed
+    if target_date is None:
+        target_date = datetime.utcnow().strftime("%Y-%m-%d")
+        
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        
+        # Delete associated food items for meals matching today's date
+        cursor.execute(
+            """
+            DELETE FROM food_items
+            WHERE meal_id IN (
+                SELECT id FROM meals WHERE DATE(timestamp) = DATE(?)
+            )
+            """,
+            (target_date,),
+        )
+        
+        # Delete the meals themselves
+        cursor.execute(
+            "DELETE FROM meals WHERE DATE(timestamp) = DATE(?)",
+            (target_date,),
+        )
+        deleted_count = cursor.rowcount
+        conn.commit()
+        return deleted_count
+    
+def reset_all_data() -> None:
+    # Permantly drops all records from both tables
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM food_items")
+        cursor.execute("DELETE FROM meals")
+            
+        # Reset the autoincrement ID counters badck to 1
+        cursor.execute("DELETE FROM sqlite_sequence WHERE name IN ('meals', 'food_items')")
+        conn.commit()
