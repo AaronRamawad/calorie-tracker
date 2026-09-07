@@ -1,7 +1,9 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+from PIL import Image
 from pydantic import BaseModel, Field
 
 load_dotenv()
@@ -19,11 +21,13 @@ class MealAnalysis(BaseModel):
     items: list[FoodItem]
     total_calories: int
     
+BASE_SYSTEM_PROMPT = (
+    "You are a nutritional calculator. Break down the meal into individual "
+    "ingredients, estimate weight in grams, and calculate macros and calories."
+)    
+    
 def parse_meal_text(description: str) -> MealAnalysis:
-    prompt = (
-        "You are a nutritional calculator. Break down the meal into individual "
-        f"ingredients, estimate weights in grams, and calculate macros and calories. \n\nMeal: {description}"
-    )
+    prompt = f"{BASE_SYSTEM_PROMPT}\n\nMeal: {description}" 
     
     response = client.models.generate_content(
         model="gemini-3.6-flash",
@@ -38,11 +42,47 @@ def parse_meal_text(description: str) -> MealAnalysis:
     #Gemini automaticaly parses the JSON directly into the Pydantic Object
     return response.parsed
 
-if __name__ == "__main__":
-    test_input = "Chicken breast with a cup of white rice and steamed broccoli"
-    result = parse_meal_text(test_input)
+def parse_meal_image(image_path: str, user_notes: str = "") -> MealAnalysis:
+    #Loads an image with Pillow and passes it to Gemini with the Pydantic Schema
+    path = Path(image_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Image not found at {image_path}")
+    
+    # Open the iamge using Pillow
+    img = Image.open(path)
+    
+    prompt = (
+        f"{BASE_SYSTEM_PROMPT}\n"
+        "Identify all foods visible on the plate/container. Estimate the portion sizes and weights. "
+    )
+    if user_notes:
+        prompt += "f\nAdditonal context from the user : {user_notes}"
+        
+    # Pass the PIL Image object directly into contents alongside the prompt
+    response = client.models.generate_content(
+        model="gemini-3.6-flash",
+        contents=[img, prompt],
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=MealAnalysis,
+            temperature=0.2,
+        ),
+    )
+    return response.parsed
+    
 
-    print(f"\n--- Meal Summary ---")
-    print(f"Total Calories: {result.total_calories} kcal")
-    for item in result.items:
-        print(f"- {item.name} ({item.grams}g): {item.calories} kcal | P: {item.protein}g C: {item.carbs}g F: {item.fat}g")
+if __name__ == "__main__":
+    # Example usage with a local photo:
+    # Drop any sample food image (e.g., meal.jpg) into your project folder
+    test_image = "temp_images/food.jpeg"
+    
+    if Path(test_image).exists():
+        print(f"Analyzing {test_image}...")
+        result = parse_meal_image(test_image)
+        
+        print("\n--- Meal Summary from Image ---")
+        print(f"Total Calories: {result.total_calories} kcal")
+        for item in result.items:
+            print(f"- {item.name} ({item.grams}g): {item.calories} kcal | P: {item.protein}g C: {item.carbs}g F: {item.fat}g")
+    else:
+        print(f"Place a sample image named '{test_image}' in your directory to test image parsing.")
