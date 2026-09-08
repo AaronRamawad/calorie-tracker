@@ -54,7 +54,7 @@ def parse_meal_image(image_path: str, user_notes: str = "") -> MealAnalysis:
     else:
         raise ValueError("Unsupported image source type")
     
-    prompt = prompt = f"""
+    prompt = f"""
     You are a precise nutritional calculator. Analyze the meal using both the image and the user's caption.
 
     CRITICAL INSTRUCTIONS ON PRECEDENCE:
