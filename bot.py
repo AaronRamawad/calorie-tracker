@@ -4,17 +4,47 @@ import logging
 import os
 import sys
 from dotenv import load_dotenv
+from typing import Callable, Dict, Any, Awaitable
 
-from aiogram import Bot, Dispatcher, F
+from aiogram import Bot, Dispatcher, F, BaseMiddleware
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import Command, CommandStart
-from aiogram.types import Message
+from aiogram.types import Message, TelegramObject
 
 from database import init_db, save_meal, get_daily_summary, delete_meal, get_recent_meals, clear_today_meals, reset_all_data, get_meal_by_id, update_meal
 from parser import parse_meal_text, parse_meal_image, MealAnalysis, recalculate_meal_correction
 
 load_dotenv()
+
+# Parse allowed IDs into a set of integers
+ALLOWED_USERS = {
+    int(uid.strip())
+    for uid in os.getenv("ALLOWED_USERS", "").split(",")
+    if uid.strip().isdigit()
+}
+
+class WhitelistMiddleware(BaseMiddleware):
+    
+    #Blocks any incoming mesages from users not defined in ALLOWED_USERS
+    
+    async def __call__(
+        self,
+        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
+        data: Dict[str, Any],
+    ) -> Any:
+        #check if the incoming event is a standard message
+        if isinstance(event, Message) and event.from_user:
+            user_id = event.from_user.id
+            
+            if user_id not in ALLOWED_USERS:
+                logging.warning(f"Unauthorized access attempt by user ID: {user_id} (@{event.from_user.username})")
+                await event.answer("⛔ <b>Access Denied:</b> You are not authorized to use this bot.")
+                return
+            
+        return await handler(event, data)
+
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 if not TOKEN:
@@ -231,8 +261,15 @@ async def handle_text(message: Message):
 # --- Execution Entrypoint ---
 
 async def main():
+    
     init_db()
+    
     bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    
+    # Register the whitelist middleware on all message events
+    
+    dp.message.middleware(WhitelistMiddleware())
+    
     print("Bot is running. Open Telegram on your phone and send a message or photo.")
     await dp.start_polling(bot)
     
