@@ -91,7 +91,7 @@ async def handle_start(message: Message):
         "• <b>/recent:</b> View last 5 meals and their IDs\n"
         "• <b>/delete &lt;id&gt;:</b> Delete a specific meal\n"
         "• <b>/cleartoday:</b> Clear only today's logged meals\n"
-        "• <b>/reset confirm:</b> Wipe all history from the database\n"
+        "• <b>/edit &lt;meal_id&gt; &lt;your correction&gt;</b>: Edit a exisiting meal\n" 
     )
     
 @dp.message(Command("summary"))
