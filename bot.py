@@ -136,17 +136,25 @@ def format_daily_summary_reply() -> str:
 
 @dp.message(CommandStart())
 async def handle_start(message: Message):
-    await message.answer(
-        "👋 <b>Welcome to your AI Calorie Tracker!</b>\n\n"
-        "How to use:\n"
-        "• <b>Text:</b> Send what you ate (e.g. <i>'2 eggs, toast with butter'</i>)\n"
-        "• <b>Photo:</b> Upload a meal picture with optional caption\n"
-        "• <b>/summary:</b> View today's calories and macros\n"
-        "• <b>/recent:</b> View last 5 meals and their IDs\n"
-        "• <b>/delete &lt;id&gt;:</b> Delete a specific meal\n"
-        "• <b>/cleartoday:</b> Clear only today's logged meals\n"
-        "• <b>/edit &lt;meal_id&gt; &lt;your correction&gt;</b>: Edit a exisiting meal\n" 
+    START_MESSAGE = (
+    "👋 <b>Welcome to your AI Calorie & Nutrition Assistant!</b>\n\n"
+    "Log food instantly by sending a <b>photo</b> with an optional caption, "
+    "or by typing a natural language message (e.g., <i>'3 eggs with avocado toast'</i>).\n\n"
+    "━━━━━━━━━━━━━━━━━━━\n"
+    "📋 <b>Tracking & History</b>\n"
+    "• /summary — View today's total calories and macro aggregates\n"
+    "• /recent — Display your last 5 logged meals with IDs\n"
+    "• /edit <code>&lt;id&gt; &lt;notes&gt;</code> — Recalculate an entry with notes\n"
+    "• /delete <code>&lt;id&gt;</code> — Delete a meal entry by ID\n"
+    "• /cleartoday — Clear all meals logged today\n\n"
+    "🎯 <b>Goals & AI Coaching</b>\n"
+    "• /setgoals <code>&lt;cals&gt; &lt;p&gt; &lt;c&gt; &lt;f&gt;</code> — Set daily macro targets\n"
+    "  └ <i>Example:</i> <code>/setgoals 2200 160 220 70</code>\n"
+    "• /coach — Analyze meal quality and get real-time pacing advice\n\n"
+    "⚠️ <b>Maintenance</b>\n"
+    "• /reset confirm — Completely wipe the database"
     )
+    await message.answer(START_MESSAGE)
     
 @dp.message(Command("summary"))
 async def handle_summary(message: Message):
