@@ -5,6 +5,8 @@ import os
 import sys
 from dotenv import load_dotenv
 from typing import Callable, Dict, Any, Awaitable
+import time
+import hashlib
 
 from aiogram import Bot, Dispatcher, F, BaseMiddleware
 from aiogram.client.default import DefaultBotProperties
@@ -12,8 +14,28 @@ from aiogram.enums import ParseMode
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message, TelegramObject
 
-from database import init_db, save_meal, get_daily_summary, delete_meal, get_recent_meals, clear_today_meals, reset_all_data, get_meal_by_id, update_meal
-from parser import parse_meal_text, parse_meal_image, MealAnalysis, recalculate_meal_correction
+from database import (
+    init_db, 
+    save_meal, 
+    get_daily_summary, 
+    delete_meal, 
+    get_recent_meals, 
+    clear_today_meals, 
+    reset_all_data, 
+    get_meal_by_id, 
+    update_meal,
+    set_user_goals,
+    get_user_goals,
+    get_today_meals_breakdown
+)
+from parser import (
+    parse_meal_text,
+    parse_meal_image, 
+    MealAnalysis, 
+    recalculate_meal_correction,
+    generate_coaching_report,
+    CoachingReport
+)
 
 load_dotenv()
 
@@ -51,6 +73,38 @@ if not TOKEN:
     raise ValueError("TELEGRAM_BOT_TOKEN is missing from .env")
 
 dp = Dispatcher()
+
+# -------------- Coach Feature ----------------------------
+
+COACH_CACHE = {}
+CACHE_TTL_SECONDS = 900 # 15 minutes
+
+def compute_meals_fingerprint(meal: list[dict], summary: dict) -> str:
+    # Generate an MD5 signature of today's intake to invalidate cache when data changes.
+    raw = "f{summary['total_calories']}:{summary['protein_g']}:{len(meals)}"
+    return hashlib.md5(raw.encode()).hexdigest()
+
+def render_coach_html(report: CoachingReport, goals: dict, rem_cals: int, rem_p: float) -> str:
+    # Formats structed pydantic report into telegram HTML
+    suggestions = ""
+    for s in report.closing_strategy:
+        suggestions += (
+            f"• <b>{s.name}</b> ({s.portion})\n"
+            f"  └ <i>{s.calories} kcal | {s.protein_g}g P | {s.carbs_g}g C | {s.fat_g}g F</i>\n"
+        )
+        
+    critique = "\n".join([f"• {c}" for c in report.dietary_critique])
+    
+    return (
+        f"🧠 <b>AI Nutrition Coach</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"🎯 <b>Daily Target:</b> <code>{goals['target_calories']} kcal</code> | <code>{goals['target_protein']}g P</code>\n"
+        f"⏳ <b>Remaining:</b> <code>{rem_cals} kcal</code> | <code>{rem_p}g P</code>\n\n"
+        f"📊 <b>Pacing:</b>\n{report.pacing_status}\n\n"
+        f"🔍 <b>Meal Critique:</b>\n{critique}\n\n"
+        f"💡 <b>Suggested Next Options:</b>\n{suggestions if suggestions else '• No additional foods needed today.'}\n"
+        f"📌 <b>Next Action:</b>\n{report.action_item}"
+    )
 
 # --------- Response Formatting Helpers -----------------
 
@@ -205,6 +259,86 @@ async def handle_edit(message: Message):
         logging.error(f"Error editing meal: {e}")
         await status_msg.edit_text("❌ Failed to update the meal. Please try again.")
     
+@dp.message(Command("setgoals"))
+async def handle_setgoals(message: Message):
+    #Usage /setgoals <calories> <protein> <carbs> <fat>
+    args = message.text.split[1:]
+    if len (args) != 4:
+        await message.answer(
+            "⚠️ <b>Format:</b> <code>/setgoals &lt;cals&gt; &lt;protein&gt; &lt;carbs&gt; &lt;fat&gt;</code>\n"
+            "<b>Example:</b> <code>/setgoals 2200 160 220 70</code>"
+        )
+        return
+    
+    try:
+        cals = int(args[0])
+        p, c, f = float(args[1]), float(args[2]), float(args[3])
+        set_user_goals(message.from_user.id, cals, p, c, f)
+        
+        # Invalidate Cache
+        COACH_CACHE.pop(message.from_user.id, None)
+        
+        await message.answer(
+            f"🎯 <b>Goals Updated:</b>\n"
+            f"• Calories: <code>{cals} kcal</code>\n"
+            f"• Protein: <code>{p}g</code>\n"
+            f"• Carbs: <code>{c}g</code>\n"
+            f"• Fat: <code>{f}g</code>"
+        )
+    except ValueError:
+        await message.answer("❌ Invalid values. Enter whole numbers for calories and numbers for macros.")
+        
+@dp.message(Command("coach"))
+async def handle_coach(message: Message):
+    user_id = message.from_user.id
+    goals = get_user_goals(user_id)
+    
+    if not goals:
+        await message.answer(
+            "⚠️ You have not configured your nutritional goals yet.\n"
+            "Use <code>/setgoals &lt;calories&gt; &lt;protein&gt; &lt;carbs&gt; &lt;fat&gt;</code> first."
+        )
+        return
+    
+    summary = get_daily_summary()
+    today_meals = get_today_meals_breakdown()
+    current_hash = compute_meals_fingerprint(today_meals, summary)
+    now = time.time()
+    
+    # Check cache validity
+    cached = COACH_CACHE.get(user_id)
+    if cached and cached["hash"] == current_hash and (now - cached["timestamp"] < CACHE_TTL_SECONDS) :
+        await message.answer(cached["text"] + "\n\n<i>(Cached review)</i>")
+        return
+    
+    status_msg = await message.answer("🧠 <i>Analyzing your meals and calculating remaining targets...</i>")
+    
+    rem_cals = goals["target_calories"] - summary["total_calories"]
+    rem_p = round(goals["target_protein"] - summary["protein_g"], 1)
+    
+    try:
+        report = await asyncio.to_thread(generate_coaching_report, goals, summary, today_meals)
+        response_text = render_coach_html(report, goals, rem_cals, rem_p)
+        
+        # Store in cache
+        COACH_CACHE[user_id] = {
+            "hash": current_hash,
+            "text": response_text,
+            "timestamp": now
+        }
+        
+        await status_msg.edit(response_text)
+    except Exception as err:
+        logging.error(f"Error generating coaching advice: {err}")
+        # Deterministic offline fallback
+        fallback = (
+            f"🎯 <b>Daily Target Status (Offline Fallback)</b>\n"
+            f"• Consumed: {summary['total_calories']} / {goals['target_calories']} kcal\n"
+            f"• Remaining: <b>{rem_cals} kcal</b> | <b>{rem_p}g Protein</b>\n\n"
+            f"⚠️ <i>AI Coach is temporarily unavailable. Focus on meeting your remaining protein target.</i>"
+        )
+        await status_msg.edit_text(fallback)
+        
 
 # ---- Message Ingestion Handlers ----
 
