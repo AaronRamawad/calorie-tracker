@@ -335,7 +335,7 @@ async def handle_coach(message: Message):
             "timestamp": now
         }
         
-        await status_msg.edit(response_text)
+        await status_msg.edit_text(response_text)
     except Exception as err:
         logging.error(f"Error generating coaching advice: {err}")
         # Deterministic offline fallback
