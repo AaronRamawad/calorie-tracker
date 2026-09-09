@@ -270,7 +270,7 @@ async def handle_edit(message: Message):
 @dp.message(Command("setgoals"))
 async def handle_setgoals(message: Message):
     #Usage /setgoals <calories> <protein> <carbs> <fat>
-    args = message.text.split[1:]
+    args = message.text.split()[1:]
     if len (args) != 4:
         await message.answer(
             "⚠️ <b>Format:</b> <code>/setgoals &lt;cals&gt; &lt;protein&gt; &lt;carbs&gt; &lt;fat&gt;</code>\n"

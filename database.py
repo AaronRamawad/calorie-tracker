@@ -47,7 +47,7 @@ def init_goals_table():
                 target_calories INTEGER NOT NULL,
                 target_protein REAL NOT NULL,
                 target_carbs REAL NOT NULL,
-                target_FAT REAL NOT NULL
+                target_fat REAL NOT NULL
             )               
         """)
         conn.commit()
