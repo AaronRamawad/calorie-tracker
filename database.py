@@ -34,6 +34,21 @@ def init_db():
             )
         """)
         conn.commit()
+
+def init_goals_table(): 
+    # Creates the user_goals table if it does not exist
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS user_goals (
+                user_id INTEGER PRIMARY KEY,
+                target_calories INTEGER NOT NULL,
+                target_protein REAL NOT NULL,
+                target_carbs REAL NOT NULL,
+                target_FAT REAL NOT NULL
+            )               
+        """)
+        conn.commit()
         
 def save_meal(description: str, analysis: MealAnalysis) -> int:
     #Saves a meal and its breakdown to SQLite
@@ -208,3 +223,70 @@ def update_meal(meal_id: int, new_description: str, analysis: MealAnalysis) -> b
             )
         conn.commit()
         return True
+    
+def set_user_goals(user_id: int, calories: int, protein: float, carbs: float, fat: float):
+    # Inserts nutriontal targets for a specific Telegram user
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO user_goals (user_id, target_calories, target_protein, target_carbs, target_fat)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                target_calories = excluded.target_calories,
+                target_protein = excluded.target_protein,
+                target_carbs = excluded.target_carbs,
+                target_fat = excluded.target_fat
+        """, (user_id, calories, protein, carbs, fat))
+        conn.commit()
+        
+def get_user_goals(user_id: int) -> dict | None:
+    # Retrieves target metrics for the user
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT target_calories, target_protein, target_carbs, target_fat FROM user_goals WHERE user_id = ?",
+            (user_id,)
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return {
+            "target_calories": row[0],
+            "target_protein": row[1],
+            "target_carbs": row[2],
+            "target_fat": row[3],
+        }
+        
+def get_today_meals_breakdown() -> list[dict]:
+    # Fetches all meals and food items logged today for coach feature
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT m.id, m.meal_description, m.total_calories, 
+                   fi.name, fi.grams, fi.protein, fi.carbs, fi.fat
+            FROM meals m
+            JOIN food_items fi ON m.id = fi.meal_id
+            WHERE DATE(m.timestamp) = DATE(?)
+            ORDER BY m.id ASC       
+        """, (today,))
+        rows = cursor.fetchall()
+        
+        meals_map = {}
+        for r in rows:
+            m_id = r[0]
+            if m_id not in meals_map:
+                meals_map[m_id] = {
+                    "id": m_id,
+                    "description": r[1],
+                    "calories": r[2],
+                    "items": []
+                }
+            meals_map[m_id]["items"].append({
+                "name": r[3],
+                "grams": r[4],
+                "protein": r[5],
+                "carbs": r[6],
+                "fat": r[7]
+            })
+        return list(meals_map.values())
