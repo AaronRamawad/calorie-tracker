@@ -11,6 +11,7 @@ def init_db():
         
         # Table to track each meal entry
         cursor.execute("""
+    
             CREATE TABLE IF NOT EXISTS meals (
                 id INTEGER  PRIMARY KEY AUTOINCREMENT,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -53,12 +54,15 @@ def init_goals_table():
         
 def save_meal(description: str, analysis: MealAnalysis) -> int:
     #Saves a meal and its breakdown to SQLite
+    
+    local_now = datetime.now().strftime("%Y-%m-%d")
+    
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
         
         cursor.execute(
-            "INSERT INTO meals (meal_description, total_calories) VALUES (?, ?)",
-            (description, analysis.total_calories),
+            "INSERT INTO meals (meal_description, total_calories, timestamp) VALUES (?, ?, ?)",
+            (description, analysis.total_calories, local_now),
         )
         meal_id = cursor.lastrowid
         
@@ -78,7 +82,7 @@ def get_daily_summary(target_date: str = None) -> dict:
     Defaults to today (UTC).
     """
     if target_date is None:
-        target_date = datetime.utcnow().strftime("%Y-%m-%d")
+        target_date = datetime.now().strftime("%Y-%m-%d")
         
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
@@ -138,7 +142,7 @@ def get_recent_meals(limit: int = 5) -> list[dict]:
 def clear_today_meals(target_date: str = None) -> int:
     # Deletes all meals logged for today and returns the count removed
     if target_date is None:
-        target_date = datetime.utcnow().strftime("%Y-%m-%d")
+        target_date = datetime.now().strftime("%Y-%m-%d")
         
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
@@ -197,6 +201,8 @@ def get_meal_by_id(meal_id: int) -> dict | None:
         }
         
 def update_meal(meal_id: int, new_description: str, analysis: MealAnalysis) -> bool:
+    local_now = datetime.now().strftime("%Y-%m-%d")
+    
     # Replaces food items and updates total calories for an existing meal
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
@@ -208,8 +214,8 @@ def update_meal(meal_id: int, new_description: str, analysis: MealAnalysis) -> b
         
         # Update parent meal
         cursor.execute(
-            "UPDATE meals SET meal_description = ?, total_calories = ? WHERE id = ?",
-            (new_description, analysis.total_calories, meal_id)
+            "UPDATE meals SET meal_description = ?, total_calories = ?, timestamp = ? WHERE id = ?",
+            (new_description, analysis.total_calories, local_now, meal_id)
         )
         
         # Clear old line items and update the revised ones
@@ -260,7 +266,7 @@ def get_user_goals(user_id: int) -> dict | None:
         
 def get_today_meals_breakdown() -> list[dict]:
     # Fetches all meals and food items logged today for coach feature
-    today = datetime.utcnow().strftime("%Y-%m-%d")
+    today = datetime.now().strftime("%Y-%m-%d")
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
         cursor.execute("""
