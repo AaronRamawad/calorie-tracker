@@ -197,10 +197,18 @@ Status: {"Surplus" if rem_cals < 0 else "Deficit"}
             temperature=0.2,
             response_mime_type="application/json",
             response_schema=CoachingReport,
-            max_output_tokens=600,
+            max_output_tokens=2048,
         ),
-    )     
-    return CoachingReport.model_validate_json(response.text)  
+    ) 
+    
+    #Polishes up the text
+    clean_text = response.text.strip()
+    if clean_text.startswith("```"):
+        clean_text = clean_text.split("\n", 1)[1]
+    if clean_text.endswith("```"):
+        clean_text = clean_text.rsplit("\n", 1)[0]  
+          
+    return CoachingReport.model_validate_json(clean_text)  
     
     
 
