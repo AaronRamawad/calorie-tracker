@@ -34,6 +34,7 @@ def init_db():
             )
         """)
         conn.commit()
+        init_goals_table()
 
 def init_goals_table(): 
     # Creates the user_goals table if it does not exist
