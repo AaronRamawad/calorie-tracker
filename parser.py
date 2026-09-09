@@ -169,7 +169,7 @@ def generate_coaching_report(goals: dict, summary: dict, today_meals: list[dict]
             meal_lines.append(f"Meal {idx} ({m['description']}): {m['calories']} kcal | {items}")
         meals_text = "\n".join(meal_lines)
         
-        prompt = f"""
+    prompt = f"""
 <user_targets>
 Calories: {goals['target_calories']} kcal | Protein: {goals['target_protein']}g | Carbs: {goals['target_carbs']}g | Fat: {goals['target_fat']}g
 </user_targets>
@@ -195,20 +195,17 @@ Status: {"Surplus" if rem_cals < 0 else "Deficit"}
         config=types.GenerateContentConfig(
             system_instruction=COACH_SYSTEM_PROMPT,
             temperature=0.2,
+            max_output_tokens=4096,
             response_mime_type="application/json",
             response_schema=CoachingReport,
-            max_output_tokens=2048,
         ),
     ) 
     
-    #Polishes up the text
-    clean_text = response.text.strip()
-    if clean_text.startswith("```"):
-        clean_text = clean_text.split("\n", 1)[1]
-    if clean_text.endswith("```"):
-        clean_text = clean_text.rsplit("\n", 1)[0]  
+    candidate = response.candidates[0]
+    if candidate.finish_reason not in ("STOP", None):
+        raise ValueError(f"Generation stopped unexpectedly: {candidate.finish_reason}")
           
-    return CoachingReport.model_validate_json(clean_text)  
+    return response.parsed
     
     
 
