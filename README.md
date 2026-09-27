@@ -1,15 +1,13 @@
-Here is the raw Markdown content wrapped in a clean code block so you can copy and paste it directly into your `README.md` file:
-
 ```markdown
-# 🥗 AI Calorie & Macro Tracker Bot
+**AI Calorie & Macro Tracker Bot**
 
 A private, local-first Telegram bot that tracks daily calories and macronutrients using multimodal computer vision and natural language processing powered by **Google Gemini 2.5 Flash**. The bot logs meals to an SQLite database, supports retroactive editing and deletion, tracks custom daily macronutrient targets, and features an integrated **AI Performance Nutrition Coach** that offers real-time pacing advice and macro-friendly food recommendations.
 
-Designed to run continuously as a lightweight background `systemd` service on Linux (Arch Linux).
+Designed to run continuously as a lightweight background `systemd` service on Linux.
 
 ---
 
-## ✨ Features
+**Features**
 
 - **Multimodal Logging:** Send a food picture with an optional text caption, or log directly via plain text (e.g., *"3 scrambled eggs with sourdough toast"*).
 - **Structured Macro Extraction:** Leverages Gemini 2.5 Flash and Pydantic schemas to deterministically extract itemized ingredients, gram weights, calories, protein, carbs, and fat.
@@ -27,7 +25,7 @@ Designed to run continuously as a lightweight background `systemd` service on Li
 
 ---
 
-## 🛠 Tech Stack
+**Tech Stack**
 
 - **Language:** Python 3.11+
 - **Telegram Framework:** [aiogram 3.x](https://github.com/aiogram/aiogram) (AsyncIO)
@@ -38,7 +36,7 @@ Designed to run continuously as a lightweight background `systemd` service on Li
 
 ---
 
-## 📁 Project Structure
+**Project Structure**
 
 ```text
 calorie-tracker/
@@ -53,7 +51,7 @@ calorie-tracker/
 
 ---
 
-## 🚀 Setup & Installation
+Setup & Installation
 
 ### 1. Clone the Repository
 
@@ -93,7 +91,7 @@ ALLOWED_TELEGRAM_USER_IDS="your_telegram_numeric_id"
 
 ---
 
-## 🤖 Telegram Bot Commands
+Telegram Bot Commands
 
 | Command | Description | Example |
 | --- | --- | --- |
@@ -109,7 +107,7 @@ ALLOWED_TELEGRAM_USER_IDS="your_telegram_numeric_id"
 
 ---
 
-## ⚙️ Running as a Systemd Service (Linux)
+Running as a Systemd Service (Linux)
 
 To ensure the bot runs continuously in the background and restarts automatically on system reboots:
 
@@ -157,14 +155,9 @@ journalctl -u calorie-bot.service -e -f
 ```
 
 
-
 ---
 
 ## 🔒 Privacy & Data Storage
 
 * All nutritional records, targets, and logs reside inside the local `calories.db` SQLite database on your host machine.
 * Image bytes and meal descriptions are passed directly to Google's Gemini API over TLS exclusively for inference and are not permanently retained in external databases.
-
-```
-
-```
