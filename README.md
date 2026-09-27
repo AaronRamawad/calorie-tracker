@@ -1,6 +1,4 @@
-Here is an updated `README.md` formatted to match the original layout, structure, and style while integrating all additions—including the AI Fitness Coach, macro-goal management, in-memory coaching cache, and timezone-aligned relational meal breakdowns:
-
----
+Here is the raw Markdown content wrapped in a clean code block so you can copy and paste it directly into your `README.md` file:
 
 ```markdown
 # 🥗 AI Calorie & Macro Tracker Bot
