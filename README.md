@@ -1,82 +1,71 @@
-# AI Calorie & Macro Tracker
-
-A private, autonomous calorie and macronutrient tracking bot powered by Python, `aiogram` v3, SQLite, and the Google Gemini API (`gemini-2.5-flash`).
+Here is an updated `README.md` formatted to match the original layout, structure, and style while integrating all additions—including the AI Fitness Coach, macro-goal management, in-memory coaching cache, and timezone-aligned relational meal breakdowns:
 
 ---
 
-## Overview
+```markdown
+# 🥗 AI Calorie & Macro Tracker Bot
 
-The **AI Calorie & Macro Tracker** is a self-hosted personal AI wrapper designed to eliminate the friction of manual calorie counting. Instead of manually searching through bloated food databases or navigating multi-screen mobile apps, you log meals by sending a text message or snapping a photo inside Telegram.
+A private, local-first Telegram bot that tracks daily calories and macronutrients using multimodal computer vision and natural language processing powered by **Google Gemini 2.5 Flash**. The bot logs meals to an SQLite database, supports retroactive editing and deletion, tracks custom daily macronutrient targets, and features an integrated **AI Performance Nutrition Coach** that offers real-time pacing advice and macro-friendly food recommendations.
 
-By pairing Telegram's native cross-platform interface with Gemini's multimodal inference, the system accurately estimates portion sizes, calculates calorie and macro breakdowns (protein, carbohydrates, fat), and persists relational data locally on your own hardware. The system prioritizes speed, absolute data ownership, and zero recurring subscription fees.
-
----
-
-## Core Features
-
-* **Multimodal Vision & Prompt Precedence**: Send meal photos directly from your phone. The vision parser enforces strict prompt precedence: user-provided text captions serve as absolute ground truth for ingredients and preparation methods (e.g., distinguishing turkey bacon from pork bacon or oat milk from dairy), while image pixels are used to evaluate portion sizing and plate volume.
-* **Natural Language Text Ingestion**: Send freeform text logs (e.g., *"3 scrambled eggs with 1 tbsp butter and a slice of sourdough toast"*) to receive instant itemized breakdowns.
-* **Deterministic Structured Outputs**: Uses Gemini's native structured outputs (`response_schema`) mapped to Pydantic models, guaranteeing valid JSON formatting and eliminating markdown hallucination artifacts.
-* **Relational Local Persistence**: Stores structured data inside a local SQLite database (`calories.db`) across two relational tables (`meals` and `food_items`), allowing granular aggregation and historical reporting.
-* **Interactive Editing & Audit Trail**: Correct misidentified foods or portion miscalculations using `/edit <id> <notes>`. The bot injects existing database items and your correction into the model context to recalculate and overwrite the meal cleanly.
-* **Access Control & Whitelisting**: An application-level `aiogram` middleware intercepts all incoming updates and rejects any requests originating from numeric Telegram User IDs not explicitly defined in your environment configuration.
+Designed to run continuously as a lightweight background `systemd` service on Linux (Arch Linux).
 
 ---
 
-## Architecture & Data Flow
+## ✨ Features
+
+- **Multimodal Logging:** Send a food picture with an optional text caption, or log directly via plain text (e.g., *"3 scrambled eggs with sourdough toast"*).
+- **Structured Macro Extraction:** Leverages Gemini 2.5 Flash and Pydantic schemas to deterministically extract itemized ingredients, gram weights, calories, protein, carbs, and fat.
+- **Target & Goal Management (`/setgoals`):** Configure custom daily targets for calories, protein, carbs, and fat with persistence in SQLite.
+- **AI Performance Nutrition Coach (`/coach`):** Evaluates daily intake against remaining budgets, provides meal quality critiques, and suggests concrete food options to hit target numbers without exceeding calories.
+- **In-Memory Performance Caching:** Features a 15-minute MD5 state-based cache for `/coach` to eliminate redundant API calls, reduce latency, and control token usage.
+- **Local Timezone Consistency:** Aligns meal timestamps and daily summary resets with the host machine's local time zone instead of UTC.
+- **Full Meal Lifecycle Control:**
+  - `/summary` for daily aggregate metrics and remaining budget.
+  - `/recent` to view the last 5 logged meals with unique IDs.
+  - `/edit <id> <notes>` to recalculate and update past meals with extra context.
+  - `/delete <id>` to remove individual meal entries.
+  - `/cleartoday` to wipe current day logs without resetting historical data.
+- **Security & Access Control:** Restricts bot operations exclusively to authorized Telegram User IDs.
+
+---
+
+## 🛠 Tech Stack
+
+- **Language:** Python 3.11+
+- **Telegram Framework:** [aiogram 3.x](https://github.com/aiogram/aiogram) (AsyncIO)
+- **AI Engine:** [Google GenAI SDK](https://github.com/google-gemini/generative-ai-python) (`gemini-2.5-flash`)
+- **Data Validation:** [Pydantic v2](https://github.com/pydantic/pydantic)
+- **Database:** SQLite3 (Local storage, relational `meals`, `food_items`, and `user_goals` schema)
+- **Host OS:** Arch Linux (managed via `systemd`)
+
+---
+
+## 📁 Project Structure
 
 ```text
-  [ Telegram Mobile / Desktop Client ]
-                   │
-                   ▼ (HTTPS / Long Polling)
-         [ aiogram v3 Bot ]
-                   │
-                   ▼
-       ┌───────────────────────┐
-       │  Whitelist Middleware │ ──► Unauthorized ID? ──► [ Access Denied (403) ]
-       └───────────────────────┘
-                   │ Authorized User
-                   ▼
-         [ Command / Event Router ]
-        /            │            \
-       /             │             \
- [ Slash Commands ]  [ Text Message ] [ Photo Upload ]
-   (/summary, etc.)         │                  │
-       │                    ▼                  ▼
-       │             [ Parser Engine (parser.py) ]
-       │                    │
-       │                    ├─► Offload to Worker Thread (asyncio.to_thread)
-       │                    └─► Gemini 2.5 Flash API (Structured Pydantic JSON)
-       │                                       │
-       │                                       ▼
-       └───────────────► [ Persistence Layer (database.py) ] ◄──┘
-                                       │
-                                       ▼
-                                [ calories.db ]
-                          (meals & food_items tables)
+calorie-tracker/
+├── bot.py               # aiogram entrypoint, handlers (/coach, /setgoals), and caching
+├── parser.py            # Gemini 2.5 Flash integration, prompts, and Pydantic models
+├── database.py          # SQLite persistence, relational joins, and aggregations
+├── requirements.txt     # Python project dependencies
+├── .env                 # Environment variables (API keys, Telegram IDs)
+└── calories.db          # Local SQLite database (created automatically)
 
 ```
 
 ---
 
-## Prerequisites & Installation
+## 🚀 Setup & Installation
 
-### 1. System Requirements
-
-* Python 3.11 or newer
-* A Telegram Bot Token (obtained from [@BotFather](https://t.me/BotFather))
-* A Google Gemini API Key (obtained from [Google AI Studio](https://aistudio.google.com/))
-* Your numeric Telegram User ID (obtained from [@userinfobot](https://t.me/userinfobot))
-
-### 2. Clone the Repository
+### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/AaronRamawad/calorie-tracker.git
+git clone [https://github.com/AaronRamawad/calorie-tracker.git](https://github.com/AaronRamawad/calorie-tracker.git)
 cd calorie-tracker
 
 ```
 
-### 3. Set Up Virtual Environment
+### 2. Create and Activate a Virtual Environment
 
 ```bash
 python3 -m venv venv
@@ -84,67 +73,60 @@ source venv/bin/activate
 
 ```
 
-### 4. Install Dependencies
+### 3. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 
 ```
 
-### 5. Configure Environment Variables
+### 4. Configure Environment Variables
 
 Create a `.env` file in the root directory:
 
-```bash
-cp .env.example .env
-
-```
-
-Populate the file with your credentials:
-
 ```env
-TELEGRAM_BOT_TOKEN="1234567890:ABCdefGhIJKlmNoPQRsTUVwxyZ"
-GEMINI_API_KEY="AIzaSyYourGeminiApiKeyHere"
-ALLOWED_USERS="123456789"
+TELEGRAM_BOT_TOKEN="your_telegram_bot_token"
+GEMINI_API_KEY="your_google_gemini_api_key"
+ALLOWED_TELEGRAM_USER_IDS="your_telegram_numeric_id"
 
 ```
 
-> **Note**: For multiple authorized users, supply comma-separated numeric IDs: `ALLOWED_USERS="123456789,987654321"`
+> **Note:** Find your Telegram numeric user ID using `@userinfobot` on Telegram.
 
 ---
 
-## Command Reference
+## 🤖 Telegram Bot Commands
 
-| Command | Arguments | Description |
+| Command | Description | Example |
 | --- | --- | --- |
-| `/start` | None | Initializes chat, prints bot capabilities and usage instructions. |
-| `/summary` | None | Displays today's aggregated metrics: total meals, calories, protein, carbs, and fat. |
-| `/recent` | None | Lists the 5 most recent meal logs alongside their database IDs, descriptions, and calories. |
-| `/edit` | `<id> <notes>` | Re-evaluates meal `<id>` with Gemini based on user instructions and overwrites SQLite records. |
-| `/delete` | `<id>` | Deletes the meal record with ID `<id>` and cascades deletion to child `food_items`. |
-| `/cleartoday` | None | Removes all meals and food items logged during the current UTC day. |
-| `/reset` | `confirm` | Wipes all records from `meals` and `food_items`, resetting autoincrement counters. |
+| `/start` | View introduction, instructions, and list of commands | `/start` |
+| `/setgoals` | Set daily caloric and macro targets (`<cals> <p> <c> <f>`) | `/setgoals 2200 160 220 70` |
+| `/coach` | Get an AI critique, pacing evaluation, and food suggestions | `/coach` |
+| `/summary` | View total calories and macros consumed today | `/summary` |
+| `/recent` | View the last 5 logged meals with their IDs | `/recent` |
+| `/edit` | Re-estimate a meal by ID with corrective notes | `/edit 4 use 2 slices of bread` |
+| `/delete` | Delete a specific meal and its food items by ID | `/delete 4` |
+| `/cleartoday` | Remove all meals logged today | `/cleartoday` |
+| `/reset confirm` | Permanently delete all meals and food history | `/reset confirm` |
 
 ---
 
-## Local Deployment (systemd)
+## ⚙️ Running as a Systemd Service (Linux)
 
-To run the bot 24/7 on local Linux hardware (such as an Arch Linux or Debian/Ubuntu home server) without keeping an open terminal, configure it as a `systemd` background service.
+To ensure the bot runs continuously in the background and restarts automatically on system reboots:
 
-### 1. Create Service Unit File
-
+1. Create a service file:
 ```bash
 sudo nano /etc/systemd/system/calorie-bot.service
 
 ```
 
-Paste the following unit definition (adjust paths and user accordingly):
 
+2. Add the following unit configuration (update paths and user to match your system):
 ```ini
 [Unit]
-Description=Telegram AI Calorie & Macro Tracker
-After=network-online.target
-Wants=network-online.target
+Description=Telegram AI Calorie & Nutrition Tracker Bot
+After=network.target
 
 [Service]
 Type=simple
@@ -152,7 +134,7 @@ User=your_username
 WorkingDirectory=/home/your_username/calorie-tracker
 ExecStart=/home/your_username/calorie-tracker/venv/bin/python bot.py
 Restart=always
-RestartSec=5
+RestartSec=10
 EnvironmentFile=/home/your_username/calorie-tracker/.env
 
 [Install]
@@ -160,8 +142,8 @@ WantedBy=multi-user.target
 
 ```
 
-### 2. Enable and Start the Service
 
+3. Enable and start the service:
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable calorie-bot.service
@@ -169,21 +151,22 @@ sudo systemctl start calorie-bot.service
 
 ```
 
-### 3. Verify Operational Status & Logs
 
+4. View live logs:
 ```bash
-# Check service status
-sudo systemctl status calorie-bot.service
-
-# Follow live application logs
-journalctl -u calorie-bot.service -f
+journalctl -u calorie-bot.service -e -f
 
 ```
 
+
+
 ---
 
-## Security Considerations
+## 🔒 Privacy & Data Storage
 
-* **Authorization at the Edge**: The application implements an `aiogram` `BaseMiddleware` that filters all incoming events by `from_user.id` against `ALLOWED_USERS`. Unlisted IDs are denied execution, safeguarding your private database and preventing Gemini API quota exhaustion.
-* **Local-First Data Ownership**: All nutritional logs, timestamps, and food items reside strictly inside the local `calories.db` SQLite file. No external database or analytics tracking is utilized.
-* **Secrets Isolation**: The `.env` file is excluded via `.gitignore` to avoid leaking credentials to version control. Pass API tokens strictly using environment variables or systemd unit definitions.
+* All nutritional records, targets, and logs reside inside the local `calories.db` SQLite database on your host machine.
+* Image bytes and meal descriptions are passed directly to Google's Gemini API over TLS exclusively for inference and are not permanently retained in external databases.
+
+```
+
+```
